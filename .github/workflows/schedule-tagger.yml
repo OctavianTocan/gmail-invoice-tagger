@@ -27,3 +27,4 @@ jobs:
           python main.py
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GMAIL_OAUTH_CLIENT_CONFIG: ${{ secrets.GMAIL_OAUTH_CLIENT_CONFIG }}
