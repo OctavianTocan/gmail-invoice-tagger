@@ -197,9 +197,7 @@ def classify_email(text: str) -> str:
     try:
         response = client.models.generate_content(
             model="gemini-2.5-flash-lite-preview-06-17", 
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction="Respond with a single JSON object like {\"category\": \"...\"}."),
+            contents=prompt
         )
         
         # The API should return valid JSON because of response_mime_type
