@@ -34,7 +34,7 @@ def gmail_authenticate():
 
 # 2) FETCH UNREAD EMAIL IDS
 def fetch_unread_message_ids(service) -> List[str]:
-    resp = service.users().messages().list(userId="me", q="is:unread").execute()
+    resp = service.users().messages().list(userId="me", q="is:unread", maxResults=10).execute()
     return resp.get("messages", [])
 
 # 3) GET & PARSE MESSAGE TEXT
