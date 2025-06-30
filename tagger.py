@@ -63,7 +63,7 @@ Email:
 Respond with a single JSON object like {\"category\": \"...\"}."
     )
     resp = genai.chat.completions.create(
-        model="models/chat-bison-001",
+        model="models/gemini-2.5-flash-lite-preview-06-17",
         messages=[{"author": "user", "content": prompt}]
     )
     content = resp.choices[0].message.content
