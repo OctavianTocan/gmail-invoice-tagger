@@ -1,4 +1,3 @@
-# pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib genai
 import os
 import pickle
 import base64
@@ -13,7 +12,6 @@ from genai import client as genai_client
 
 # 1) CONFIG & AUTH SETUP
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
-CREDS_FILE = "credentials.json"   # your OAuth2 client (Gmail) JSON
 TOKEN_PICKLE = "token.pickle"     # stores Gmail access/refresh tokens
 
 # categories you care about
