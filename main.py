@@ -24,7 +24,8 @@ CATEGORIES = ["Orders", "Invoices", "Other"]
 # Initialize the Generative AI client
 # Make sure your GEMINI_API_KEY is set as an environment variable.
 try:
-    client = genai.Client()
+    # Using Google Gemini API.
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 except KeyError:
     print("Error: GEMINI_API_KEY environment variable not set.")
     exit()
@@ -197,7 +198,9 @@ def classify_email(text: str) -> str:
     try:
         response = client.models.generate_content(
             model="gemini-2.5-flash-lite-preview-06-17", 
-            contents=prompt
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction="Respond with a single JSON object like {\"category\": \"...\"}."),
         )
         
         # The API should return valid JSON because of response_mime_type
