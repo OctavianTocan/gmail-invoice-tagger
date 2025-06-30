@@ -8,6 +8,7 @@ on:
 jobs:
   run-tagger:
     runs-on: ubuntu-latest
+    timeout-minutes: 10  # Prevent infinite hanging
 
     steps:
       - name: Checkout code
@@ -27,4 +28,4 @@ jobs:
           python main.py
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GMAIL_OAUTH_CLIENT_CONFIG: ${{ secrets.GMAIL_OAUTH_CLIENT_CONFIG }}
+          GMAIL_SERVICE_ACCOUNT_KEY: ${{ secrets.GMAIL_SERVICE_ACCOUNT_KEY }}
