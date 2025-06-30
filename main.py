@@ -56,7 +56,7 @@ def gmail_authenticate():
 
     # 2) Spin up the authorization flow directly from the config dictionary.
     flow = InstalledAppFlow.from_client_config(clientconfig, SCOPES)
-    creds = flow.run_local_server(port=0)
+    creds = flow.run_local_server(port=0, open_browser=False)
 
     # 3) Build and return the Gmail service object.
     try:
