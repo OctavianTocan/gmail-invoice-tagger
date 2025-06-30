@@ -25,7 +25,7 @@ genai.set_api_key(os.environ["GENAI_API_KEY"])
 
 def gmail_authenticate():
     # 1) load the raw JSON OAuth client config from an ENV var
-    clientconfig = json.loads(os.environ["GMAILOAUTHCLIENTCONFIG"])
+    clientconfig = json.loads(os.environ["GMAIL_OAUTH_CLIENT_CONFIG"])
     
     # 2) spin up the flow directly from that dict
     flow = InstalledAppFlow.fromclientconfig(client_config, SCOPES)
