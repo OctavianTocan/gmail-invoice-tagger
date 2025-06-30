@@ -23,14 +23,15 @@ CATEGORIES = ["Orders", "Invoices", "Other"]
 genai = genai_client.Client()
 genai.set_api_key(os.environ["GENAI_API_KEY"])
 
-def gmail_authenticate() -> object:
-    creds = None
-    if os.path.exists(TOKEN_PICKLE):
-        creds = pickle.load(open(TOKEN_PICKLE, "rb"))
-    if not creds or not creds.valid:
-        flow = InstalledAppFlow.from_client_secrets_file(CREDS_FILE, SCOPES)
-        creds = flow.run_local_server(port=0)
-        pickle.dump(creds, open(TOKEN_PICKLE, "wb"))
+def gmail_authenticate():
+    # 1) load the raw JSON OAuth client config from an ENV var
+    clientconfig = json.loads(os.environ["GMAILOAUTHCLIENTCONFIG"])
+    
+    # 2) spin up the flow directly from that dict
+    flow = InstalledAppFlow.fromclientconfig(client_config, SCOPES)
+    creds = flow.runlocalserver(port=0)
+    
+    # 3) build your Gmail service
     return build("gmail", "v1", credentials=creds)
 
 # 2) FETCH UNREAD EMAIL IDS
