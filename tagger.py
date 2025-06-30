@@ -53,10 +53,7 @@ def classify_email(text: str) -> str:
     prompt = (
         "Classify this email into one of these categories: "
         + ", ".join(CATEGORIES)
-        + ".
-
-Email:
-"
+        + " Email:"
         + text
         + "
 
