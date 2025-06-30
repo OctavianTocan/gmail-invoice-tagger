@@ -7,7 +7,7 @@ from typing import List, Dict
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
-from genai import client as genai_client
+from google import genai
 
 # ==============================================================================
 # 1) CONFIGURATION & AUTHENTICATION SETUP
@@ -21,12 +21,11 @@ SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 CATEGORIES = ["Orders", "Invoices", "Other"]
 
 # Initialize the Generative AI client
-# Make sure your GENAI_API_KEY is set as an environment variable.
+# Make sure your GEMINI_API_KEY is set as an environment variable.
 try:
-    genai = genai_client.Client()
-    genai.set_api_key(os.environ["GENAI_API_KEY"])
+    client = genai.Client(api_key='GEMINI_API_KEY')
 except KeyError:
-    print("Error: GENAI_API_KEY environment variable not set.")
+    print("Error: GEMINI_API_KEY environment variable not set.")
     exit()
 
 def gmail_authenticate():
@@ -196,8 +195,8 @@ def classify_email(text: str) -> str:
     )
     
     try:
-        response = genai.chat.completions.create(
-            model="models/gemini-pro", # Using a standard, robust model
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-lite-preview-06-17",
             messages=[{"role": "user", "content": prompt}],
             response_mime_type="application/json"
         )
