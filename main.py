@@ -8,6 +8,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google import genai
+from google.genai import types
 
 # ==============================================================================
 # 1) CONFIGURATION & AUTHENTICATION SETUP
@@ -23,7 +24,7 @@ CATEGORIES = ["Orders", "Invoices", "Other"]
 # Initialize the Generative AI client
 # Make sure your GEMINI_API_KEY is set as an environment variable.
 try:
-    client = genai.Client(api_key='GEMINI_API_KEY')
+    client = genai.Client()
 except KeyError:
     print("Error: GEMINI_API_KEY environment variable not set.")
     exit()
@@ -152,7 +153,7 @@ def get_or_create_label(service, label_name: str) -> str:
         return created_label["id"]
     except HttpError as error:
         print(f"An error occurred while processing labels: {error}")
-        return None
+        return ""
 
 def apply_label(service, msg_id: str, label_id: str):
     """
@@ -191,20 +192,22 @@ def classify_email(text: str) -> str:
     prompt = (
         "Classify this email into one of the following categories: "
         f"{', '.join(CATEGORIES)}. Email text: '{text}'. "
-        "Respond with a single JSON object like {\"category\": \"...\"}."
     )
     
     try:
+        # The client gets the API key from the environment variable `GEMINI_API_KEY`.
+        client = genai.Client()
+
         response = client.models.generate_content(
-            model="gemini-2.5-flash-lite-preview-06-17",
-            messages=[{"role": "user", "content": prompt}],
-            response_mime_type="application/json"
+            model="gemini-2.5-flash-lite-preview-06-17", 
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction="Respond with a single JSON object like {\"category\": \"...\"}."),
         )
-        content = response.choices[0].message.content
         
         # The API should return valid JSON because of response_mime_type
-        output = json.loads(content)
-        category = output.get("category")
+        output = response.text
+        category = response.text
         
         if category in CATEGORIES:
             return category
