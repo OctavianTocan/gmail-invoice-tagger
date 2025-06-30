@@ -7,100 +7,253 @@ from typing import List, Dict
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
-
 from genai import client as genai_client
 
-# 1) CONFIG & AUTH SETUP
-SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
-TOKEN_PICKLE = "token.pickle"     # stores Gmail access/refresh tokens
+# ==============================================================================
+# 1) CONFIGURATION & AUTHENTICATION SETUP
+# ==============================================================================
 
-# categories you care about
+# Define the scope of access needed for the Gmail API.
+# 'modify' allows reading, composing, sending, and moving messages.
+SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
+
+# Define the categories for classifying emails.
 CATEGORIES = ["Orders", "Invoices", "Other"]
 
-# initialize GenAI
-genai = genai_client.Client()
-genai.set_api_key(os.environ["GENAI_API_KEY"])
+# Initialize the Generative AI client
+# Make sure your GENAI_API_KEY is set as an environment variable.
+try:
+    genai = genai_client.Client()
+    genai.set_api_key(os.environ["GENAI_API_KEY"])
+except KeyError:
+    print("Error: GENAI_API_KEY environment variable not set.")
+    exit()
 
 def gmail_authenticate():
-    # 1) load the raw JSON OAuth client config from an ENV var
-    clientconfig = json.loads(os.environ["GMAIL_OAUTH_CLIENT_CONFIG"])
+    """
+    Authenticates with the Gmail API using OAuth 2.0.
     
-    # 2) spin up the flow directly from that dict
-    flow = InstalledAppFlow.fromclientconfig(client_config, SCOPES)
-    creds = flow.runlocalserver(port=0)
+    It uses a client secrets JSON configuration stored in an environment
+    variable to create an OAuth flow and get user credentials.
     
-    # 3) build your Gmail service
-    return build("gmail", "v1", credentials=creds)
-
-# 2) FETCH UNREAD EMAIL IDS
-def fetch_unread_message_ids(service) -> List[str]:
-    resp = service.users().messages().list(userId="me", q="is:unread", maxResults=10).execute()
-    return resp.get("messages", [])
-
-# 3) GET & PARSE MESSAGE TEXT
-def get_message_text(service, msg_id: str) -> str:
-    msg = service.users().messages().get(userId="me", id=msg_id, format="full").execute()
-    parts = msg["payload"].get("parts", [])
-    text = ""
-    for part in parts:
-        if part["mimeType"] == "text/plain":
-            data = part["body"]["data"]
-            text += base64.urlsafe_b64decode(data).decode("utf-8")
-    return text
-
-# 4) CALL GEMINI TO CLASSIFY
-def classify_email(text: str) -> str:
-    prompt = (
-        "Classify this email into one of these categories: "
-        + ", ".join(CATEGORIES)
-        + " Email:"
-        + text
-        + "
-
-Respond with a single JSON object like {\"category\": \"...\"}."
-    )
-    resp = genai.chat.completions.create(
-        model="models/gemini-2.5-flash-lite-preview-06-17",
-        messages=[{"author": "user", "content": prompt}]
-    )
-    content = resp.choices[0].message.content
+    Returns:
+        A Google API client service object for interacting with Gmail.
+    """
+    creds = None
+    
+    # 1) Load the raw JSON OAuth client configuration from an environment variable.
     try:
-        out = json.loads(content)
-        if out.get("category") in CATEGORIES:
-            return out["category"]
+        clientconfig_str = os.environ["GMAIL_OAUTH_CLIENT_CONFIG"]
+        clientconfig = json.loads(clientconfig_str)
+    except KeyError:
+        print("Error: GMAIL_OAUTH_CLIENT_CONFIG environment variable not set.")
+        print("Please store your OAuth client JSON config in this variable.")
+        exit()
     except json.JSONDecodeError:
-        pass
-    return "Other"
+        print("Error: Could not decode the JSON in GMAIL_OAUTH_CLIENT_CONFIG.")
+        exit()
 
-# 5) ENSURE LABEL EXISTS & APPLY IT
+    # 2) Spin up the authorization flow directly from the config dictionary.
+    flow = InstalledAppFlow.from_client_config(clientconfig, SCOPES)
+    creds = flow.run_local_server(port=0)
+
+    # 3) Build and return the Gmail service object.
+    try:
+        service = build("gmail", "v1", credentials=creds)
+        return service
+    except HttpError as error:
+        print(f"An error occurred while building the Gmail service: {error}")
+        return None
+
+# ==============================================================================
+# 2) GMAIL API INTERACTIONS
+# ==============================================================================
+
+def fetch_unread_message_ids(service) -> List[Dict]:
+    """
+    Fetches a list of unread message IDs from the user's Gmail account.
+    
+    Args:
+        service: The authenticated Gmail API service object.
+        
+    Returns:
+        A list of message objects, or an empty list if no unread messages are found.
+    """
+    try:
+        response = service.users().messages().list(
+            userId="me", q="is:unread", maxResults=10
+        ).execute()
+        return response.get("messages", [])
+    except HttpError as error:
+        print(f"An error occurred while fetching messages: {error}")
+        return []
+
+def get_message_text(service, msg_id: str) -> str:
+    """
+    Retrieves the plain text content of a specific email.
+    
+    Args:
+        service: The authenticated Gmail API service object.
+        msg_id: The ID of the message to retrieve.
+        
+    Returns:
+        The plain text body of the email as a string.
+    """
+    try:
+        msg = service.users().messages().get(
+            userId="me", id=msg_id, format="full"
+        ).execute()
+        
+        parts = msg.get("payload", {}).get("parts", [])
+        text_content = ""
+        
+        if not parts: # Handle simple, non-multipart emails
+            body_data = msg.get("payload", {}).get("body", {}).get("data")
+            if body_data:
+                 text_content = base64.urlsafe_b64decode(body_data).decode("utf-8")
+        else: # Handle multipart emails
+            for part in parts:
+                if part.get("mimeType") == "text/plain":
+                    data = part.get("body", {}).get("data", "")
+                    text_content += base64.urlsafe_b64decode(data).decode("utf-8")
+                    
+        return text_content
+    except HttpError as error:
+        print(f"An error occurred while getting message text: {error}")
+        return ""
+
 def get_or_create_label(service, label_name: str) -> str:
-    labels = service.users().labels().list(userId="me").execute().get("labels", [])
-    for l in labels:
-        if l["name"] == label_name:
-            return l["id"]
-    # if not found, create it
-    label = {
-        "name": label_name,
-        "labelListVisibility": "labelShow",
-        "messageListVisibility": "show",
-    }
-    created = service.users().labels().create(userId="me", body=label).execute()
-    return created["id"]
+    """
+    Gets the ID of an existing label or creates it if it doesn't exist.
+    
+    Args:
+        service: The authenticated Gmail API service object.
+        label_name: The name of the label to find or create.
+        
+    Returns:
+        The ID of the label.
+    """
+    try:
+        labels_response = service.users().labels().list(userId="me").execute()
+        labels = labels_response.get("labels", [])
+        
+        for label in labels:
+            if label["name"] == label_name:
+                return label["id"]
+        
+        # If the label was not found, create it.
+        new_label = {
+            "name": label_name,
+            "labelListVisibility": "labelShow",
+            "messageListVisibility": "show",
+        }
+        created_label = service.users().labels().create(
+            userId="me", body=new_label
+        ).execute()
+        return created_label["id"]
+    except HttpError as error:
+        print(f"An error occurred while processing labels: {error}")
+        return None
 
 def apply_label(service, msg_id: str, label_id: str):
-    mods = {"addLabelIds": [label_id], "removeLabelIds": ["UNREAD"]}
-    service.users().messages().modify(userId="me", id=msg_id, body=mods).execute()
+    """
+    Applies a label to a message and marks it as read.
+    
+    Args:
+        service: The authenticated Gmail API service object.
+        msg_id: The ID of the message to modify.
+        label_id: The ID of the label to add.
+    """
+    try:
+        mods = {"addLabelIds": [label_id], "removeLabelIds": ["UNREAD"]}
+        service.users().messages().modify(
+            userId="me", id=msg_id, body=mods
+        ).execute()
+    except HttpError as error:
+        print(f"An error occurred while applying the label: {error}")
 
-# 6) MAIN WORKFLOW
-def main():
-    service = gmail_authenticate()
-    for msg in fetch_unread_message_ids(service):
-        mid = msg["id"]
-        text = get_message_text(service, mid)
-        category = classify_email(text)
-        label_id = get_or_create_label(service, category)
-        apply_label(service, mid, label_id)
-        print(f"Msg {mid}: → {category}")
+# ==============================================================================
+# 3) AI-POWERED CLASSIFICATION
+# ==============================================================================
+
+def classify_email(text: str) -> str:
+    """
+    Uses a generative AI model to classify email text into a category.
+    
+    Args:
+        text: The email content to classify.
         
+    Returns:
+        The predicted category as a string (e.g., "Orders", "Other").
+    """
+    if not text:
+        return "Other"
+
+    prompt = (
+        "Classify this email into one of the following categories: "
+        f"{', '.join(CATEGORIES)}. Email text: '{text}'. "
+        "Respond with a single JSON object like {\"category\": \"...\"}."
+    )
+    
+    try:
+        response = genai.chat.completions.create(
+            model="models/gemini-pro", # Using a standard, robust model
+            messages=[{"role": "user", "content": prompt}],
+            response_mime_type="application/json"
+        )
+        content = response.choices[0].message.content
+        
+        # The API should return valid JSON because of response_mime_type
+        output = json.loads(content)
+        category = output.get("category")
+        
+        if category in CATEGORIES:
+            return category
+            
+    except Exception as e:
+        print(f"An error occurred during AI classification: {e}")
+        
+    return "Other"
+
+# ==============================================================================
+# 4) MAIN WORKFLOW
+# ==============================================================================
+
+def main():
+    """
+    Main function to run the email classification and labeling workflow.
+    """
+    print("Starting email classification process...")
+    service = gmail_authenticate()
+    
+    if not service:
+        print("Could not authenticate with Gmail. Exiting.")
+        return
+
+    messages = fetch_unread_message_ids(service)
+    if not messages:
+        print("No unread messages found.")
+        return
+
+    print(f"Found {len(messages)} unread emails. Processing...")
+    for msg_summary in messages:
+        msg_id = msg_summary["id"]
+        text = get_message_text(service, msg_id)
+        
+        if not text:
+            print(f"Msg {msg_id}: Could not retrieve text, skipping.")
+            continue
+            
+        category = classify_email(text)
+        print(f"Msg {msg_id}: Classified as '{category}'")
+        
+        label_id = get_or_create_label(service, category)
+        if label_id:
+            apply_label(service, msg_id, label_id)
+            print(f"Msg {msg_id}: Successfully labeled and marked as read.")
+    
+    print("Processing complete.")
+
 if __name__ == "__main__":
     main()
+
