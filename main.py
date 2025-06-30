@@ -195,9 +195,6 @@ def classify_email(text: str) -> str:
     )
     
     try:
-        # The client gets the API key from the environment variable `GEMINI_API_KEY`.
-        client = genai.Client()
-
         response = client.models.generate_content(
             model="gemini-2.5-flash-lite-preview-06-17", 
             contents=prompt,
