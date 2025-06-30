@@ -1,4 +1,4 @@
-name: Run tagger.py on schedule
+name: Run main.py on schedule
 
 on:
   schedule:
@@ -22,6 +22,6 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Run tagger.py
+      - name: Run main.py
         run: |
-          python tagger.py
+          python main.py
