@@ -25,7 +25,7 @@ CATEGORIES = ["Orders", "Invoices", "Other"]
 # Make sure your GEMINI_API_KEY is set as an environment variable.
 try:
     # Using Google Gemini API.
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 except KeyError:
     print("Error: GEMINI_API_KEY environment variable not set.")
     exit()
@@ -44,7 +44,7 @@ def gmail_authenticate():
     
     # 1) Load the raw JSON OAuth client configuration from an environment variable.
     try:
-        clientconfig_str = os.environ["GMAIL_OAUTH_CLIENT_CONFIG"]
+        clientconfig_str = os.getenv("GMAIL_OAUTH_CLIENT_CONFIG")
         clientconfig = json.loads(clientconfig_str)
     except KeyError:
         print("Error: GMAIL_OAUTH_CLIENT_CONFIG environment variable not set.")
