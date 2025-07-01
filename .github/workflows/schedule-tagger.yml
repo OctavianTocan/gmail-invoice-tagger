@@ -29,3 +29,4 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GMAIL_SERVICE_ACCOUNT_KEY: ${{ secrets.GMAIL_SERVICE_ACCOUNT_KEY }}
+          GMAIL_SUBJECT_EMAIL: ${{ secrets.GMAIL_SUBJECT_EMAIL }}

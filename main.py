@@ -21,11 +21,8 @@ SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 # Define the categories for classifying emails.
 CATEGORIES = ["Orders", "Invoices", "Other"]
 
-try:
-    subject_email = os.getenv("GMAIL_SUBJECT_EMAIL")  
-except KeyError:
-    print("Error: GMAIL_SUBJECT_EMAIL environment variable not set.")
-    exit()
+# Load environment variables for Gmail API authentication.
+subject_email = os.getenv("GMAIL_SUBJECT_EMAIL")  
 
 # Initialize the Generative AI client
 # Make sure your GEMINI_API_KEY is set as an environment variable.
