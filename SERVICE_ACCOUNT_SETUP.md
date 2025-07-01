@@ -67,8 +67,7 @@ Since Gmail API requires accessing user data, you need to set up domain-wide del
 In your `main.py`, you need to specify which user's Gmail account to access. Uncomment and modify this line in the `gmail_authenticate()` function:
 
 ```python
-# Replace 'user@yourdomain.com' with the actual email address
-credentials = credentials.with_subject('user@yourdomain.com')
+credentials = credentials.with_subject(subject_email)
 ```
 
 ## Step 5: Add GitHub Secrets
