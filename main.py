@@ -6,7 +6,7 @@ from typing import List, Dict
 
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google.oauth2 import service_account
 from google import genai
 from google.genai import types
 
@@ -21,6 +21,9 @@ SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 # Define the categories for classifying emails.
 CATEGORIES = ["Orders", "Invoices", "Other"]
 
+# Load environment variables for Gmail API authentication.
+subject_email = os.getenv("GMAIL_SUBJECT_EMAIL")  
+
 # Initialize the Generative AI client
 # Make sure your GEMINI_API_KEY is set as an environment variable.
 try:
@@ -32,38 +35,45 @@ except KeyError:
 
 def gmail_authenticate():
     """
-    Authenticates with the Gmail API using OAuth 2.0.
+    Authenticates with the Gmail API using service account credentials.
     
-    It uses a client secrets JSON configuration stored in an environment
-    variable to create an OAuth flow and get user credentials.
+    This method is designed for server-to-server authentication and works
+    well in automated environments like GitHub Actions.
     
     Returns:
         A Google API client service object for interacting with Gmail.
     """
-    creds = None
-    
-    # 1) Load the raw JSON OAuth client configuration from an environment variable.
     try:
-        clientconfig_str = os.getenv("GMAIL_OAUTH_CLIENT_CONFIG")
-        clientconfig = json.loads(clientconfig_str)
-    except KeyError:
-        print("Error: GMAIL_OAUTH_CLIENT_CONFIG environment variable not set.")
-        print("Please store your OAuth client JSON config in this variable.")
-        exit()
-    except json.JSONDecodeError:
-        print("Error: Could not decode the JSON in GMAIL_OAUTH_CLIENT_CONFIG.")
-        exit()
-
-    # 2) Spin up the authorization flow directly from the config dictionary.
-    flow = InstalledAppFlow.from_client_config(clientconfig, SCOPES)
-    creds = flow.run_local_server(port=0, open_browser=False)
-
-    # 3) Build and return the Gmail service object.
-    try:
-        service = build("gmail", "v1", credentials=creds)
+        # Load service account credentials from environment variable
+        service_account_key = os.getenv("GMAIL_SERVICE_ACCOUNT_KEY")
+        if not service_account_key:
+            print("Error: GMAIL_SERVICE_ACCOUNT_KEY environment variable not set.")
+            print("Please store your service account JSON key in this variable.")
+            return None
+            
+        service_account_info = json.loads(service_account_key)
+        
+        # Create credentials from service account info
+        credentials = service_account.Credentials.from_service_account_info(
+            service_account_info, 
+            scopes=SCOPES
+        )
+        
+        # For domain-wide delegation, uncomment and modify the following line:
+        if subject_email:
+            credentials = credentials.with_subject(subject_email)
+        
+        # Build and return the Gmail service object
+        service = build("gmail", "v1", credentials=credentials)
+        print("Successfully authenticated with Gmail API using service account.")
         return service
-    except HttpError as error:
-        print(f"An error occurred while building the Gmail service: {error}")
+        
+    except json.JSONDecodeError:
+        print("Error: Could not decode the JSON in GMAIL_SERVICE_ACCOUNT_KEY.")
+        print("Please ensure the service account key is valid JSON.")
+        return None
+    except Exception as error:
+        print(f"Authentication failed: {error}")
         return None
 
 # ==============================================================================
